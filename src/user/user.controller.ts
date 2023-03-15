@@ -1,13 +1,37 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ActivateUserDto } from './dto/activate-user.dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { User } from './models/user.model';
+import { Response } from 'express';
+import { LoginUserDto } from './dto/login-user.dto';
 
 @ApiTags('Foydalanuvchilar')
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) { }
+
+  @ApiOperation({ summary: "Ro'yxatdan o'tish" })
+  @ApiResponse({ status: 201, type: User })
+  @Post('signup')
+  async registration(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    return this.userService.registration(createUserDto, res);
+  }
+
+  @ApiOperation({ summary: "Logindan o'tish" })
+  @ApiResponse({ status: 200, type: User })
+  @HttpCode(HttpStatus.OK)
+  @Post('signin')
+  async login(
+    @Body() loginUserDto: LoginUserDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    return this.userService.login(loginUserDto, res);
+  }
 
   @ApiOperation({ summary: "Barcha Foydalanuvchilarni ko'rish" })
   @Get()

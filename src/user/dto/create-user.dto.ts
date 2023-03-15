@@ -18,14 +18,22 @@ export class CreateUserDto {
     username: string;
 
     @ApiProperty({ example: 'Uzbek1$t0n', description: 'Foydalanuvchi paroli' })
-    @MinLength(10)
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(6)
     @IsStrongPassword()
     password: string;
 
-    @ApiProperty({ example: 'https://t.me/john77', description: 'Foydalanuvchi telegram linki' })
+    @ApiProperty({ example: 'Uzbek1$t0n', description: 'Foydalanuvchi paroli qaytadan' })
     @IsNotEmpty()
     @IsString()
-    telegram_link: string;
+    @MinLength(6)
+    confirm_password: string;
+
+    // @ApiProperty({ example: 'https://t.me/john77', description: 'Foydalanuvchi telegram linki' })
+    // @IsNotEmpty()
+    // @IsString()
+    // telegram_link: string;
     
     @ApiProperty({ example: 'john77@gmail.com', description: 'Foydalanuvchi emaili' })
     @IsNotEmpty()

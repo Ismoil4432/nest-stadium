@@ -19,6 +19,7 @@ interface UserAttrs {
     is_owner: boolean;
     is_active: boolean;
     hashed_refresh_token: string;
+    activation_link: string;
 }
 
 @Table({ tableName: 'user' })
@@ -55,11 +56,11 @@ export class User extends Model<User, UserAttrs> {
     })
     hashed_password: string;
 
-    @Column({
-        type: DataType.STRING,
-        allowNull: false
-    })
-    telegram_link: string;
+    // @Column({
+    //     type: DataType.STRING,
+    //     allowNull: false
+    // })
+    // telegram_link: string;
 
     @Column({
         type: DataType.STRING,
@@ -74,11 +75,11 @@ export class User extends Model<User, UserAttrs> {
     })
     phone: string;
 
-    @Column({
-        type: DataType.STRING,
-        allowNull: false
-    })
-    user_photo: string;
+    // @Column({
+    //     type: DataType.STRING,
+    //     allowNull: false
+    // })
+    // user_photo: string;
 
     @Column({
         type: DataType.DATE,
@@ -88,21 +89,26 @@ export class User extends Model<User, UserAttrs> {
 
     @Column({
         type: DataType.BOOLEAN,
-        allowNull: false
+        // allowNull: false
     })
     is_owner: boolean;
 
     @Column({
         type: DataType.BOOLEAN,
-        allowNull: false
+        // allowNull: false
     })
     is_active: boolean;
 
     @Column({
         type: DataType.STRING,
-        allowNull: false
+        // allowNull: false
     })
     hashed_refresh_token: string;
+
+    @Column({
+        type: DataType.STRING
+    })
+    activation_link: string;
 
     @HasMany(() => UserCart)
     userCart: UserCart;
