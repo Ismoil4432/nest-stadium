@@ -31,6 +31,7 @@ import { CartModule } from './cart/cart.module';
 import { Cart } from './cart/models/cart.model';
 import { OrderModule } from './order/order.module';
 import { Order } from './order/models/order.model';
+import { AuthModule } from './auth/auth.module';
 
 
 @Module({
@@ -81,6 +82,7 @@ import { Order } from './order/models/order.model';
     UserWalletModule,
     CartModule,
     OrderModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],

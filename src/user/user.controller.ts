@@ -1,34 +1,53 @@
-import { Controller, Get, Post, Body, Put, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { ActivateUserDto } from './dto/activate-user.dto';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Foydalanuvchilar')
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
-  }
-
+  @ApiOperation({ summary: "Barcha Foydalanuvchilarni ko'rish" })
   @Get()
-  findAll() {
+  async findAll() {
     return this.userService.findAll();
   }
 
+  @ApiOperation({ summary: "Foydalanuvchini ID bo'yicha olish" })
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+  async findOne(@Param('id') id: number) {
+    return this.userService.findOne(id);
   }
 
-  @Put(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
-  }
-
+  @ApiOperation({ summary: "Foydalanuvchini ID bo'yicha o'chirish" })
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
+  async delete(@Param('id') id: number) {
+    return this.userService.delete(id);
+  }
+
+  @ApiOperation({ summary: "Foydalanuvchini yaratish" })
+  @Post()
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    return this.userService.createUser(createUserDto);
+  }
+
+  @ApiOperation({ summary: "Foydalanuvchini email bo'yicha olish" })
+  @Get(':email')
+  async getUserByEmail(@Param('email') email: string) {
+    return this.userService.getUserByEmail(email);
+  }
+
+  @ApiOperation({ summary: "Foydalanuvchini aktiv qilish" })
+  @Post('activate')
+  async activateUser(@Body() activateUserDto: ActivateUserDto) {
+    return this.userService.activateUser(activateUserDto);
+  }
+
+  @ApiOperation({ summary: "Foydalanuvchini deaktiv qilish" })
+  @Post('deactivate')
+  async deactivateUser(@Body() activateUserDto: ActivateUserDto) {
+    return this.userService.deactivateUser(activateUserDto);
   }
 }
