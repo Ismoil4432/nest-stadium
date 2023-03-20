@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from './models/user.model';
@@ -8,28 +8,36 @@ import { Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4, v4 } from 'uuid';
 import { LoginUserDto } from './dto/login-user.dto';
+import { MailService } from './../mail/mail.service';
+
+interface IUpdateUser {
+  id: number;
+  hashed_refresh_token: string;
+  activation_link?: string;
+}
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User) private userRepository: typeof User,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly mailService: MailService
   ) { }
 
-  async registration(createuserDto: CreateUserDto, res: Response) {
+  async registration(createUserDto: CreateUserDto, res: Response) {
     const user = await this.userRepository.findOne({
-      where: { username: createuserDto.username }
+      where: { username: createUserDto.username }
     })
     if (user) {
       throw new BadRequestException('Username already exists!');
     }
-    if (createuserDto.password !== createuserDto.confirm_password) {
+    if (createUserDto.password !== createUserDto.confirm_password) {
       throw new BadRequestException('Passwords do not match!');
     }
 
-    const hashed_password = await bcrypt.hash(createuserDto.password, 7);
+    const hashed_password = await bcrypt.hash(createUserDto.password, 7);
     const newUser = await this.userRepository.create({
-      ...createuserDto,
+      ...createUserDto,
       hashed_password
     })
 
@@ -54,6 +62,7 @@ export class UserService {
       httpOnly: true
     })
 
+    await this.mailService.sendUserConfirmation(updatedUser[1][0]);
     const response = {
       message: 'User registered',
       user: updatedUser[1][0],
@@ -101,6 +110,79 @@ export class UserService {
       tokens
     };
 
+    return response;
+  }
+
+  async logout(refreshToken: string, res: Response) {
+    const userData = await this.jwtService.verify(refreshToken, {
+      secret: process.env.REFRESH_TOKEN_KEY
+    });
+    if (!userData) {
+      throw new ForbiddenException('User not found');
+    }
+    const updateUser = await this.userRepository.update(
+      { hashed_refresh_token: null },
+      { where: { id: userData.id }, returning: true }
+    );
+    res.clearCookie('refresh_token');
+    const response = {
+      message: 'User logged out successfully',
+      user: updateUser[1][0]
+    }
+    return response;
+  }
+
+  async activate(link: string) {
+    const updatedUser = await this.userRepository.update(
+      { is_active: true },
+      { where: { activation_link: link, is_active: false }, returning: true }
+    );
+
+    const response = {
+      message: 'User activated successfully',
+      user: updatedUser[1][0]
+    }
+    return response;
+  }
+
+  async refreshToken(user_id: number, refreshToken: string, res: Response) {
+    const decodedToken = this.jwtService.decode(refreshToken);
+    if (user_id != decodedToken['id']) {
+      throw new BadRequestException('User not found');
+    }
+    const user = await this.userRepository.findOne({ where: { id: user_id } });
+    if (!user || user.hashed_refresh_token) {
+      throw new BadRequestException('User not found');
+    }
+    const tokenMatch = await bcrypt.compare(
+      refreshToken,
+      user.hashed_password
+    );
+
+    if (!tokenMatch) {
+      throw new ForbiddenException('Forbidden');
+    }
+
+    const tokens = await this.getTokens(user);
+    const hashed_refresh_token = await bcrypt.hash(tokens.refresh_token, 7);
+    const updatedUser = await this.userRepository.update(
+      {
+        hashed_refresh_token
+      },
+      {
+        where: { id: user.id },
+        returning: true
+      }
+    );
+    res.cookie('refresh_token', tokens.refresh_token, {
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+      httpOnly: true
+    })
+    const response = {
+      message: 'User refreshed',
+      user: updatedUser[1][0],
+      tokens
+    };
     return response;
   }
 
@@ -164,15 +246,40 @@ export class UserService {
     return { message: "Foydalanuvchi o'chirildi" };
   }
 
-  async createUser(createUserDto: CreateUserDto) {
+  async createUser(createUserDto) {
     const newUser = await this.userRepository.create(createUserDto);
     return newUser;
   }
 
+  // async updateUser(
+  //   user: IUpdateUser,
+  //   options?: {
+  //     where?: { id: number },
+  //     returning?: boolean,
+  //   }
+  // ) {
+  //   const updatedUser = await this.userRepository.update(
+  //     {
+  //       hashed_refresh_token,
+  //       activation_link: uniqueKey
+  //     },
+  //     {
+  //       where: { id },
+  //       returning: true
+  //     });
+  //   return updatedUser;
+  // }
+
   async getUserByEmail(email: string) {
     const user = await this.userRepository.findOne({
-      where: { email },
-      include: { all: true }
+      where: { email }
+    });
+    return user;
+  }
+
+  async getUserByUsername(username: string) {
+    const user = await this.userRepository.findOne({
+      where: { username }
     });
     return user;
   }

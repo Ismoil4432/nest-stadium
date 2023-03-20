@@ -32,6 +32,7 @@ import { Cart } from './cart/models/cart.model';
 import { OrderModule } from './order/order.module';
 import { Order } from './order/models/order.model';
 import { AuthModule } from './auth/auth.module';
+import { MailModule } from './mail/mail.module';
 
 
 @Module({
@@ -83,6 +84,7 @@ import { AuthModule } from './auth/auth.module';
     CartModule,
     OrderModule,
     AuthModule,
+    MailModule,
   ],
   controllers: [],
   providers: [],

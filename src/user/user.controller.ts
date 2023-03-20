@@ -6,6 +6,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { User } from './models/user.model';
 import { Response } from 'express';
 import { LoginUserDto } from './dto/login-user.dto';
+import { CookieGetter } from '../decorators/cookieGetter.decorator';
 
 @ApiTags('Foydalanuvchilar')
 @Controller('user')
@@ -31,6 +32,35 @@ export class UserController {
     @Res({ passthrough: true }) res: Response
   ) {
     return this.userService.login(loginUserDto, res);
+  }
+
+  @ApiOperation({ summary: "Logout qilish" })
+  @ApiResponse({ status: 200, type: User })
+  @HttpCode(HttpStatus.OK)
+  @Post('signout')
+  async logout(
+    @CookieGetter('refresh_token') refreshToken: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    return this.userService.logout(refreshToken, res);
+  }
+
+  @ApiOperation({ summary: "Activate user" })
+  @ApiResponse({ status: 200, type: [User] })
+  @Get('activate/:link')
+  async activate(@Param('link') link: string) {
+    return this.userService.activate(link);
+  }
+
+  @ApiOperation({ summary: "Activate user" })
+  @ApiResponse({ status: 200, type: [User] })
+  @Get(':id/refresh')
+  async refresh(
+    @Param('id') id: string,
+    @CookieGetter('refresh_token') refreshToken: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    return this.userService.refreshToken(+id, refreshToken, res);
   }
 
   @ApiOperation({ summary: "Barcha Foydalanuvchilarni ko'rish" })
