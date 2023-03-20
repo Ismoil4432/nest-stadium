@@ -7,6 +7,9 @@ import { User } from './models/user.model';
 import { Response } from 'express';
 import { LoginUserDto } from './dto/login-user.dto';
 import { CookieGetter } from '../decorators/cookieGetter.decorator';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { PhoneUserDto } from './dto/phone-user.dto';
+import { FindUserDto } from './dto/find-user.dto';
 
 @ApiTags('Foydalanuvchilar')
 @Controller('user')
@@ -63,10 +66,23 @@ export class UserController {
     return this.userService.refreshToken(+id, refreshToken, res);
   }
 
+  @Post('otp')
+  async newOtp(@Body() phoneUserDto: PhoneUserDto) {
+    return this.userService.newOtp(phoneUserDto);
+  }
+
+  @Post('verify')
+  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
+    return this.userService.verifyOtp(verifyOtpDto);
+  }
+
+
+
+
   @ApiOperation({ summary: "Barcha Foydalanuvchilarni ko'rish" })
-  @Get()
-  async findAll() {
-    return this.userService.findAll();
+  @Post('find')
+  async findAll(@Body() findUserDto: FindUserDto) {
+    return this.userService.findAll(findUserDto);
   }
 
   @ApiOperation({ summary: "Foydalanuvchini ID bo'yicha olish" })

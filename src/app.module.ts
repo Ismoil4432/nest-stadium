@@ -33,10 +33,23 @@ import { OrderModule } from './order/order.module';
 import { Order } from './order/models/order.model';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
+import { BotModule } from './bot/bot.module';
+import { TelegrafModule } from 'nestjs-telegraf';
+import { BOT_NAME } from './app.constant';
+import { Bot } from './bot/models/bot.model';
+import { OtpModule } from './otp/otp.module';
 
 
 @Module({
   imports: [
+    TelegrafModule.forRootAsync({
+      botName: BOT_NAME,
+      useFactory: ()=> ({
+        token: process.env.BOT_TOKEN,
+        middlewares: [],
+        include: [BotModule]
+      })
+    }),
     ConfigModule.forRoot({
       envFilePath: '.env',
       isGlobal: true
@@ -63,7 +76,8 @@ import { MailModule } from './mail/mail.module';
         StadiumTime,
         UserWallet,
         Cart,
-        Order
+        Order,
+        Bot
       ],
       autoLoadModels: true,
       logging: false
@@ -85,6 +99,8 @@ import { MailModule } from './mail/mail.module';
     OrderModule,
     AuthModule,
     MailModule,
+    BotModule,
+    OtpModule,
   ],
   controllers: [],
   providers: [],

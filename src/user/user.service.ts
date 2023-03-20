@@ -9,6 +9,16 @@ import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4, v4 } from 'uuid';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MailService } from './../mail/mail.service';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { decode, encode } from '../helpers/crypto';
+import { Otp } from '../otp/models/otp.model';
+import { dates } from './../helpers/crypto';
+import { PhoneUserDto } from './dto/phone-user.dto';
+import * as otpGenerator from 'otp-generator';
+import { BotService } from '../bot/bot.service';
+import { AddMinutesToDate } from '../helpers/addMinutes';
+import { Op } from 'sequelize';
+import { FindUserDto } from './dto/find-user.dto';
 
 interface IUpdateUser {
   id: number;
@@ -19,13 +29,15 @@ interface IUpdateUser {
 @Injectable()
 export class UserService {
   constructor(
-    @InjectModel(User) private userRepository: typeof User,
+    @InjectModel(User) private userRepo: typeof User,
+    @InjectModel(Otp) private otpRepo: typeof Otp,
+    private readonly botService: BotService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService
   ) { }
 
   async registration(createUserDto: CreateUserDto, res: Response) {
-    const user = await this.userRepository.findOne({
+    const user = await this.userRepo.findOne({
       where: { username: createUserDto.username }
     })
     if (user) {
@@ -36,7 +48,7 @@ export class UserService {
     }
 
     const hashed_password = await bcrypt.hash(createUserDto.password, 7);
-    const newUser = await this.userRepository.create({
+    const newUser = await this.userRepo.create({
       ...createUserDto,
       hashed_password
     })
@@ -46,7 +58,7 @@ export class UserService {
     const hashed_refresh_token = await bcrypt.hash(tokens.refresh_token, 7);
     const uniqueKey: string = uuidv4();
 
-    const updatedUser = await this.userRepository.update(
+    const updatedUser = await this.userRepo.update(
       {
         hashed_refresh_token,
         activation_link: uniqueKey
@@ -74,7 +86,7 @@ export class UserService {
 
   async login(loginUserDto: LoginUserDto, res: Response) {
     const { email, password } = loginUserDto;
-    const user = await this.userRepository.findOne({
+    const user = await this.userRepo.findOne({
       where: { email }
     })
     if (!user) {
@@ -89,7 +101,7 @@ export class UserService {
 
     const hashed_refresh_token = await bcrypt.hash(tokens.refresh_token, 7);
 
-    const updatedUser = await this.userRepository.update(
+    const updatedUser = await this.userRepo.update(
       {
         hashed_refresh_token
       },
@@ -120,7 +132,7 @@ export class UserService {
     if (!userData) {
       throw new ForbiddenException('User not found');
     }
-    const updateUser = await this.userRepository.update(
+    const updateUser = await this.userRepo.update(
       { hashed_refresh_token: null },
       { where: { id: userData.id }, returning: true }
     );
@@ -133,7 +145,7 @@ export class UserService {
   }
 
   async activate(link: string) {
-    const updatedUser = await this.userRepository.update(
+    const updatedUser = await this.userRepo.update(
       { is_active: true },
       { where: { activation_link: link, is_active: false }, returning: true }
     );
@@ -150,7 +162,7 @@ export class UserService {
     if (user_id != decodedToken['id']) {
       throw new BadRequestException('User not found');
     }
-    const user = await this.userRepository.findOne({ where: { id: user_id } });
+    const user = await this.userRepo.findOne({ where: { id: user_id } });
     if (!user || user.hashed_refresh_token) {
       throw new BadRequestException('User not found');
     }
@@ -165,7 +177,7 @@ export class UserService {
 
     const tokens = await this.getTokens(user);
     const hashed_refresh_token = await bcrypt.hash(tokens.refresh_token, 7);
-    const updatedUser = await this.userRepository.update(
+    const updatedUser = await this.userRepo.update(
       {
         hashed_refresh_token
       },
@@ -210,6 +222,91 @@ export class UserService {
     };
   }
 
+  async newOtp(phoneUserDto: PhoneUserDto) {
+    const phone_number = phoneUserDto.phone;
+    const otp = otpGenerator.generate(4, {
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: false,
+      specialChars: false,
+    });
+    const isSend = await this.botService.sendOTP(phone_number, otp);
+    if (!isSend) {
+      throw new HttpException(
+        "Avval Botdan ro'yhatdan o'ting",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const now = new Date();
+    const expiration_time = AddMinutesToDate(now, 5);
+    await this.otpRepo.destroy({
+      where: { [Op.and]: [{ check: phone_number }, { verified: false }] },
+    });
+    const newOtp = await this.otpRepo.create({
+      id: v4(),
+      otp,
+      expiration_time,
+      check: phone_number,
+    });
+    const details = {
+      timestamp: now,
+      check: phone_number,
+      success: true,
+      message: 'OTP sent to user',
+      otp_id: newOtp.id,
+    };
+    const encoded = await encode(JSON.stringify(details));
+    return { status: 'Success', Details: encoded };
+  }
+
+
+  async verifyOtp(verifyOtpDto: VerifyOtpDto) {
+    const { verification_key, otp, check } = verifyOtpDto;
+    const currentDate = new Date();
+    const decoded = await decode(verification_key);
+    const obj = JSON.parse(decoded);
+    const check_obj = obj.check;
+    if (check_obj != check) {
+      throw new BadRequestException('OTP bu raqamga yuborilmagan');
+    }
+    const result = await this.otpRepo.findOne({
+      where: { id: obj.otp_id }
+    });
+
+    if (result != null) {
+      if (!result.verified) {
+        if (dates.compare(result.expiration_time, currentDate)) {
+          if (otp === result.otp) {
+            const user = await this.userRepo.findOne({
+              where: { phone: check }
+            });
+            if (user) {
+              const updatedUser = await this.userRepo.update(
+                { is_owner: true },
+                { where: { id: user.id }, returning: true }
+              );
+              await this.otpRepo.update(
+                { verified: true },
+                { where: { id: obj.otp_id }, returning: true }
+              );
+              const response = {
+                message: 'User updated as owner',
+                user: updatedUser[1][0]
+              };
+              return response;
+            }
+          } else {
+            throw new BadRequestException('OTP does not match');
+          }
+        } else {
+          throw new BadRequestException('OTP expired');
+        }
+      } else {
+        throw new BadRequestException('OTP already used');
+      }
+    } else {
+      throw new BadRequestException('User not found');
+    }
+  }
 
 
 
@@ -221,14 +318,63 @@ export class UserService {
 
 
 
-
-  async findAll() {
-    const user = await this.userRepository.findAll({ include: { all: true } });
+  async findAll(findUserDto: FindUserDto) {
+    const where = {};
+    if (findUserDto.first_name) {
+      where['first_name'] = {
+        [Op.iLike]: `%${findUserDto.first_name}%`
+      };
+    }
+    if (findUserDto.last_name) {
+      where['last_name'] = {
+        [Op.iLike]: `%${findUserDto.last_name}%`
+      };
+    }
+    if (findUserDto.username) {
+      where['username'] = {
+        [Op.iLike]: `%${findUserDto.username}%`
+      };
+    }
+    if (findUserDto.email) {
+      where['email'] = {
+        [Op.iLike]: `%${findUserDto.email}%`
+      };
+    }
+    if (findUserDto.phone) {
+      where['phone'] = {
+        [Op.iLike]: `%${findUserDto.phone}%`
+      };
+    }
+    if (findUserDto.birth_day_from) {
+      where['birth_day'] = {
+        [Op.gte]: `${findUserDto.birth_day_from}`
+      };
+    }
+    if (findUserDto.birth_day_to) {
+      where['birth_day'] = {
+        [Op.lte]: `${findUserDto.birth_day_to}`
+      };
+    }
+    if (findUserDto.birth_day_from && findUserDto.birth_day_to) {
+      where['birth_day'] = {
+        [Op.between]: [findUserDto.birth_day_from, findUserDto.birth_day_to]
+      };
+    }
+    if (findUserDto.is_active) {
+      where['is_active'] = findUserDto.is_active;
+    }
+    if (findUserDto.is_owner) {
+      where['is_owner'] = findUserDto.is_owner;
+    }
+    const user = await this.userRepo.findAll({
+      where,
+      include: { all: true }
+    });
     return user;
   }
 
   async findOne(id: number) {
-    const user = await this.userRepository.findOne({
+    const user = await this.userRepo.findOne({
       where: { id },
       include: { all: true }
     });
@@ -239,7 +385,7 @@ export class UserService {
   }
 
   async delete(id: number) {
-    const user = await this.userRepository.destroy({ where: { id } });
+    const user = await this.userRepo.destroy({ where: { id } });
     if (!user) {
       throw new HttpException('Foydalanuvchi topilmadi', HttpStatus.NOT_FOUND);
     }
@@ -247,7 +393,7 @@ export class UserService {
   }
 
   async createUser(createUserDto) {
-    const newUser = await this.userRepository.create(createUserDto);
+    const newUser = await this.userRepo.create(createUserDto);
     return newUser;
   }
 
@@ -258,7 +404,7 @@ export class UserService {
   //     returning?: boolean,
   //   }
   // ) {
-  //   const updatedUser = await this.userRepository.update(
+  //   const updatedUser = await this.userRepo.update(
   //     {
   //       hashed_refresh_token,
   //       activation_link: uniqueKey
@@ -271,21 +417,21 @@ export class UserService {
   // }
 
   async getUserByEmail(email: string) {
-    const user = await this.userRepository.findOne({
+    const user = await this.userRepo.findOne({
       where: { email }
     });
     return user;
   }
 
   async getUserByUsername(username: string) {
-    const user = await this.userRepository.findOne({
+    const user = await this.userRepo.findOne({
       where: { username }
     });
     return user;
   }
 
   async activateUser(activateUserDto: ActivateUserDto) {
-    const user = await this.userRepository.findByPk(activateUserDto.user_id);
+    const user = await this.userRepo.findByPk(activateUserDto.user_id);
 
     if (!user) {
       throw new HttpException('Foydalanuvchi topilmadi', HttpStatus.NOT_FOUND);
@@ -297,7 +443,7 @@ export class UserService {
   }
 
   async deactivateUser(activateUserDto: ActivateUserDto) {
-    const user = await this.userRepository.findByPk(activateUserDto.user_id);
+    const user = await this.userRepo.findByPk(activateUserDto.user_id);
 
     if (!user) {
       throw new HttpException('Foydalanuvchi topilmadi', HttpStatus.NOT_FOUND);
