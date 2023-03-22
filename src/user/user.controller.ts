@@ -109,12 +109,6 @@ export class UserController {
     return this.userService.getUserByEmail(email);
   }
 
-  @ApiOperation({ summary: "Foydalanuvchini aktiv qilish" })
-  @Post('activate')
-  async activateUser(@Body() activateUserDto: ActivateUserDto) {
-    return this.userService.activateUser(activateUserDto);
-  }
-
   @ApiOperation({ summary: "Foydalanuvchini deaktiv qilish" })
   @Post('deactivate')
   async deactivateUser(@Body() activateUserDto: ActivateUserDto) {

@@ -30,10 +30,9 @@ export class CreateUserDto {
     @MinLength(6)
     confirm_password: string;
 
-    // @ApiProperty({ example: 'https://t.me/john77', description: 'Foydalanuvchi telegram linki' })
-    // @IsNotEmpty()
-    // @IsString()
-    // telegram_link: string;
+    @ApiProperty({ example: 'https://t.me/john77', description: 'Foydalanuvchi telegram linki' })
+    @IsString()
+    telegram_link: string;
     
     @ApiProperty({ example: 'john77@gmail.com', description: 'Foydalanuvchi emaili' })
     @IsNotEmpty()

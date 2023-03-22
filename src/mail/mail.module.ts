@@ -17,13 +17,11 @@ import { join } from 'path';
             pass: config.get<string>('MAILDEV_PASS')
           }
         },
-
         defaults: {
           from: `"Stadium" <${config.get('MAILER_HOST')}>`
         },
-
         template: {
-          dir: join(__dirname, 'templates'),
+          dir: join(__dirname, './templates'),
           adapter: new HandlebarsAdapter(),
           template: 'confirmation',
           options: {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { User } from '../user/models/user.model';
 import { MailerService } from '@nestjs-modules/mailer';
+import { User } from '../user/models/user.model';
 
 @Injectable()
 export class MailService {
@@ -8,15 +8,14 @@ export class MailService {
 
     async sendUserConfirmation(user: User): Promise<void> {
         const url = `${process.env.API_HOST}/api/user/activate/${user.activation_link}`;
-        console.log(url);
         await this.mailerService.sendMail({
             to: user.email,
-            subject: 'Welcome to Stadium App! Confirm your Email!',
+            subject: 'Welcome to Stadium App! Confirm you Email!',
             template: './confirmation',
             context: {
                 name: user.first_name,
-                url
-            }
+                url,
+            },
         });
     }
 }

@@ -56,16 +56,14 @@ export class User extends Model<User, UserAttrs> {
     })
     hashed_password: string;
 
-    // @Column({
-    //     type: DataType.STRING,
-    //     allowNull: false
-    // })
-    // telegram_link: string;
+    @Column({
+        type: DataType.STRING
+    })
+    telegram_link: string;
 
     @Column({
         type: DataType.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
     })
     email: string;
 
@@ -75,33 +73,30 @@ export class User extends Model<User, UserAttrs> {
     })
     phone: string;
 
-    // @Column({
-    //     type: DataType.STRING,
-    //     allowNull: false
-    // })
-    // user_photo: string;
+    @Column({
+        type: DataType.STRING
+    })
+    user_photo: string;
 
     @Column({
-        type: DataType.DATE,
-        allowNull: false
+        type: DataType.DATE
     })
     birth_day: Date;
 
     @Column({
         type: DataType.BOOLEAN,
-        // allowNull: false
+        defaultValue: false
     })
     is_owner: boolean;
 
     @Column({
         type: DataType.BOOLEAN,
-        // allowNull: false
+        defaultValue: false
     })
     is_active: boolean;
 
     @Column({
-        type: DataType.STRING,
-        // allowNull: false
+        type: DataType.STRING
     })
     hashed_refresh_token: string;
 

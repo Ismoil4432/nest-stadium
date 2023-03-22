@@ -5,7 +5,7 @@ import { User } from './models/user.model';
 import { ActivateUserDto } from './dto/activate-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { Response } from 'express';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4, v4 } from 'uuid';
 import { LoginUserDto } from './dto/login-user.dto';
 import { MailService } from './../mail/mail.service';
@@ -20,11 +20,6 @@ import { AddMinutesToDate } from '../helpers/addMinutes';
 import { Op } from 'sequelize';
 import { FindUserDto } from './dto/find-user.dto';
 
-interface IUpdateUser {
-  id: number;
-  hashed_refresh_token: string;
-  activation_link?: string;
-}
 
 @Injectable()
 export class UserService {
@@ -37,27 +32,25 @@ export class UserService {
   ) { }
 
   async registration(createUserDto: CreateUserDto, res: Response) {
-    const user = await this.userRepo.findOne({
-      where: { username: createUserDto.username }
-    })
+    const user = await this.getUserByUsername(createUserDto.username);
+    const userEmail = await this.getUserByEmail(createUserDto.email);
     if (user) {
       throw new BadRequestException('Username already exists!');
+    }
+    if (userEmail) {
+      throw new BadRequestException('Email already registered!');
     }
     if (createUserDto.password !== createUserDto.confirm_password) {
       throw new BadRequestException('Passwords do not match!');
     }
-
     const hashed_password = await bcrypt.hash(createUserDto.password, 7);
     const newUser = await this.userRepo.create({
       ...createUserDto,
       hashed_password
     })
-
     const tokens = await this.getTokens(newUser);
-
     const hashed_refresh_token = await bcrypt.hash(tokens.refresh_token, 7);
     const uniqueKey: string = uuidv4();
-
     const updatedUser = await this.userRepo.update(
       {
         hashed_refresh_token,
@@ -68,19 +61,16 @@ export class UserService {
         returning: true
       }
     );
-
     res.cookie('refresh_token', tokens.refresh_token, {
       maxAge: 15 * 24 * 60 * 60 * 1000,
       httpOnly: true
     })
-
     await this.mailService.sendUserConfirmation(updatedUser[1][0]);
     const response = {
       message: 'User registered',
       user: updatedUser[1][0],
       tokens
     };
-
     return response;
   }
 
@@ -96,11 +86,8 @@ export class UserService {
     if (!isMatchPass) {
       throw new UnauthorizedException('User not registered(pass)');
     }
-
     const tokens = await this.getTokens(user);
-
     const hashed_refresh_token = await bcrypt.hash(tokens.refresh_token, 7);
-
     const updatedUser = await this.userRepo.update(
       {
         hashed_refresh_token
@@ -110,18 +97,15 @@ export class UserService {
         returning: true
       }
     );
-
     res.cookie('refresh_token', tokens.refresh_token, {
       maxAge: 15 * 24 * 60 * 60 * 1000,
       httpOnly: true
     })
-
     const response = {
       message: 'User logged in',
       user: updatedUser[1][0],
       tokens
     };
-
     return response;
   }
 
@@ -145,11 +129,16 @@ export class UserService {
   }
 
   async activate(link: string) {
+    if (!link) {
+      throw new BadRequestException('Activation link is expired');
+    }
     const updatedUser = await this.userRepo.update(
       { is_active: true },
       { where: { activation_link: link, is_active: false }, returning: true }
     );
-
+    if (!updatedUser[1][0]) {
+      throw new BadRequestException('User already activated');
+    }
     const response = {
       message: 'User activated successfully',
       user: updatedUser[1][0]
@@ -397,24 +386,22 @@ export class UserService {
     return newUser;
   }
 
-  // async updateUser(
-  //   user: IUpdateUser,
-  //   options?: {
-  //     where?: { id: number },
-  //     returning?: boolean,
-  //   }
-  // ) {
-  //   const updatedUser = await this.userRepo.update(
-  //     {
-  //       hashed_refresh_token,
-  //       activation_link: uniqueKey
-  //     },
-  //     {
-  //       where: { id },
-  //       returning: true
-  //     });
-  //   return updatedUser;
-  // }
+  async updateUser(
+    user: {
+      hashed_refresh_token: string;
+      activation_link?: string;
+    },
+    id: number
+  ) {
+    const updatedUser = await this.userRepo.update(
+      user,
+      {
+        where: { id },
+        returning: true
+      }
+    );
+    return updatedUser;
+  }
 
   async getUserByEmail(email: string) {
     const user = await this.userRepo.findOne({
@@ -427,18 +414,6 @@ export class UserService {
     const user = await this.userRepo.findOne({
       where: { username }
     });
-    return user;
-  }
-
-  async activateUser(activateUserDto: ActivateUserDto) {
-    const user = await this.userRepo.findByPk(activateUserDto.user_id);
-
-    if (!user) {
-      throw new HttpException('Foydalanuvchi topilmadi', HttpStatus.NOT_FOUND);
-    }
-
-    user.is_active = true;
-    await user.save();
     return user;
   }
 

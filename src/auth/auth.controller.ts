@@ -11,24 +11,24 @@ import { User } from '../user/models/user.model';
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
-  // @ApiOperation({ summary: "Login qilish" })
-  // @ApiResponse({ status: 200, type: User })
-  // @HttpCode(HttpStatus.OK)
-  // @Post('signin')
-  // async login(
-  //   @Body() loginAuthDto: LoginAuthDto,
-  //   @Res({ passthrough: true }) res: Response
-  // ) {
-  //   return this.authService.login(loginAuthDto, res);
-  // }
+  @ApiOperation({ summary: "Login qilish" })
+  @ApiResponse({ status: 200, type: User })
+  @HttpCode(HttpStatus.OK)
+  @Post('signin')
+  async login(
+    @Body() loginAuthDto: LoginAuthDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    return this.authService.login(loginAuthDto, res);
+  }
 
-  // @ApiOperation({ summary: "Register qilish" })
-  // @ApiResponse({ status: 201, type: User })
-  // @Post('signup')
-  // async registration(
-  //   @Body() createUserDto: CreateUserDto,
-  //   @Res({ passthrough: true }) res: Response
-  // ) {
-  //   return this.authService.registration(createUserDto, res);
-  // }
+  @ApiOperation({ summary: "Register qilish" })
+  @ApiResponse({ status: 201, type: User })
+  @Post('signup')
+  async registration(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    return this.authService.registration(createUserDto, res);
+  }
 }
